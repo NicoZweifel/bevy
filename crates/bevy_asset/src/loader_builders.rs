@@ -5,7 +5,7 @@ use crate::{
     io::Reader,
     meta::{meta_transform_settings, AssetMetaDyn, MetaTransform, Settings},
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
-    LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
+    LoadDirectError, LoadDirectErrorData, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
@@ -413,18 +413,22 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                     .asset_server
                     .get_asset_loader_with_asset_type_id(asset_type_id)
                     .await
-                    .map_err(|error| LoadDirectError::LoadError {
-                        dependency: path.clone(),
-                        error: error.into(),
+                    .map_err(|error| {
+                        LoadDirectError::LoadError(Box::new(LoadDirectErrorData {
+                            dependency: path.clone(),
+                            error: error.into(),
+                        }))
                     })?
             } else {
                 self.load_context
                     .asset_server
                     .get_path_asset_loader(path)
                     .await
-                    .map_err(|error| LoadDirectError::LoadError {
-                        dependency: path.clone(),
-                        error: error.into(),
+                    .map_err(|error| {
+                        LoadDirectError::LoadError(Box::new(LoadDirectErrorData {
+                            dependency: path.clone(),
+                            error: error.into(),
+                        }))
                     })?
             };
             let meta = loader.default_meta();
@@ -435,9 +439,11 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                 .asset_server
                 .get_meta_loader_and_reader(path, asset_type_id)
                 .await
-                .map_err(|error| LoadDirectError::LoadError {
-                    dependency: path.clone(),
-                    error,
+                .map_err(|error| {
+                    LoadDirectError::LoadError(Box::new(LoadDirectErrorData {
+                        dependency: path.clone(),
+                        error,
+                    }))
                 })?;
             (meta, loader, ReaderRef::Boxed(reader))
         };
@@ -479,9 +485,8 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
         self.load_internal(&path, Some(TypeId::of::<A>()))
             .await
             .and_then(move |(loader, untyped_asset)| {
-                untyped_asset
-                    .downcast::<A>()
-                    .map_err(|_| LoadDirectError::LoadError {
+                untyped_asset.downcast::<A>().map_err(|_| {
+                    LoadDirectError::LoadError(Box::new(LoadDirectErrorData {
                         dependency: path.clone(),
                         error: AssetLoadError::RequestedHandleTypeMismatch {
                             path,
@@ -489,7 +494,8 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
                             actual_asset_name: loader.asset_type_name(),
                             loader_name: loader.type_path(),
                         },
-                    })
+                    }))
+                })
             })
     }
 }

@@ -202,9 +202,8 @@ impl SphereMeshBuilder {
         //  | /  |
         //  k2--k2+1
         for i in 0..stacks {
-            let mut k1 = i * (sectors + 1);
-            let mut k2 = k1 + sectors + 1;
-            for _j in 0..sectors {
+            let k1 = i * (sectors + 1);
+            for (k1, (k2, _j)) in (i * (sectors + 1)..).zip((k1 + sectors + 1..).zip(0..sectors)) {
                 if i != 0 {
                     indices.push(k1);
                     indices.push(k2);
@@ -215,8 +214,6 @@ impl SphereMeshBuilder {
                     indices.push(k2);
                     indices.push(k2 + 1);
                 }
-                k1 += 1;
-                k2 += 1;
             }
         }
 

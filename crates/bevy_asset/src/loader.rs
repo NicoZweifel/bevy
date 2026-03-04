@@ -347,13 +347,16 @@ impl<A: Asset> AssetContainer for A {
 pub enum LoadDirectError {
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
-    #[error("Failed to load dependency {dependency:?} {error}")]
-    LoadError {
-        dependency: AssetPath<'static>,
-        error: AssetLoadError,
-    },
+    #[error(transparent)]
+    LoadError(Box<LoadDirectErrorData>),
 }
 
+#[derive(Error, Debug)]
+#[error("Failed to load dependency {dependency:?} {error}")]
+pub struct LoadDirectErrorData {
+    pub(crate) dependency: AssetPath<'static>,
+    pub(crate) error: AssetLoadError,
+}
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
@@ -654,9 +657,11 @@ impl<'a> LoadContext<'a> {
                 self.populate_hashes,
             )
             .await
-            .map_err(|error| LoadDirectError::LoadError {
-                dependency: path.clone(),
-                error,
+            .map_err(|error| {
+                LoadDirectError::LoadError(Box::new(LoadDirectErrorData {
+                    dependency: path.clone(),
+                    error,
+                }))
             })?;
         let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
