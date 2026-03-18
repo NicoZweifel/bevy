@@ -2701,9 +2701,10 @@ pub struct NestedQuery<D: QueryData + 'static, F: QueryFilter + 'static = ()>(
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct NestedQueryFetch<'w> {
-    world: UnsafeWorldCell<'w>,
-    last_run: Tick,
-    this_run: Tick,
+    // TODO make private after upstreaming
+    pub world: UnsafeWorldCell<'w>,
+    pub last_run: Tick,
+    pub this_run: Tick,
 }
 
 // SAFETY:
